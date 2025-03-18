@@ -40,14 +40,20 @@ exports.createMessageAndConversation = async ({ messageId, conversationId, sende
       });
     }
 
-    // Create the new message and save it
-    const message = new Message({
+    // Create the new message
+    let messageData = {
       conversation: conversation._id,
       sender: senderId,
-      messageId_sender,
-      messageId_receiver,
-      content
-    });
+      content: content,
+    };
+
+    if (messageId_sender) {
+      messageData.messageId_sender = messageId_sender;
+    } else if (messageId_receiver) {
+      messageData.messageId_receiver = messageId_receiver;
+    }
+
+    const message = new Message(messageData);
 
     // Save message and update conversation in parallel
     const [savedMessage] = await Promise.all([
