@@ -8,9 +8,11 @@ const conversationSchema = new mongoose.Schema({
       required: true
     }
   ],
-  conversationIdSender: {
-    type: Number,
-    required: true
+  conversationId_sender: {
+    type: String,
+  },
+  conversationId_receiver: {
+    type: String,
   },
   // Optional: a reference to the most recent message for quick access
   lastMessage: {

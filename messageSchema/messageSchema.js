@@ -13,13 +13,11 @@ const messageSchema = new mongoose.Schema({
     ref: 'registered',
     required: true
   },
-  messageId: {
-    type: Number,
-    required: true
+  messageId_sender: {
+    type: String,
   },
-  conversationId: {
-    type: Number,
-    required: true
+  messageId_receiver: {
+    type: String,
   },
   content: {
     type: String,

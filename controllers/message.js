@@ -4,6 +4,9 @@ const User = require('../messageSchema/user'); // Ensure User model is imported
 
 exports.createMessageAndConversation = async ({ messageId, conversationId, sender, recipient, content }) => {
   try {
+    const conversationIdParts = conversationId.split('_');
+    const identifier = conversationIdParts.length > 1 ? conversationIdParts[1] : '';
+
     // Find sender and recipient concurrently
     const [senderUser, recipientUser] = await Promise.all([
       User.findOne({ email: sender }).select('_id'),
@@ -17,52 +20,59 @@ exports.createMessageAndConversation = async ({ messageId, conversationId, sende
     const senderId = senderUser._id;
     const recipientId = recipientUser._id;
 
-    // Look for an existing conversation between these two users
+    let conversationId_sender = identifier === sender ? conversationId : null;
+    let conversationId_receiver = identifier === recipient ? conversationId : null;
+
+    let messageId_sender = identifier === sender ? messageId : null;
+    let messageId_receiver = identifier === recipient ? messageId : null;
+
+    // Check for existing conversation
     let conversation = await Conversation.findOne({
       participants: { $all: [senderId, recipientId], $size: 2 }
     });
 
-    // If no conversation exists, create one automatically
+    // If no conversation exists, create one
     if (!conversation) {
-      conversation = new Conversation({ 
+      conversation = await Conversation.create({
         participants: [senderId, recipientId], 
-        conversationId: conversationId 
+        conversationId_sender,
+        conversationId_receiver
       });
-      await conversation.save();
     }
 
-    // Ensure participants are populated
-    await conversation.populate('participants', 'firstname lastname email image_url');
-
-    // Create the new message referencing the conversation ID
+    // Create the new message and save it
     const message = new Message({
       conversation: conversation._id,
       sender: senderId,
-      messageId: messageId,
-      conversationId: conversationId,
-      content: content
+      messageId_sender,
+      messageId_receiver,
+      content
     });
-    const savedMessage = await message.save();
 
-    // Update the conversation's last message field and save
-    conversation.lastMessage = savedMessage._id;
-    await conversation.save();
+    // Save message and update conversation in parallel
+    const [savedMessage] = await Promise.all([
+      message.save(),
+      Conversation.updateOne(
+        { _id: conversation._id },
+        { $set: { lastMessage: message._id } }
+      )
+    ]);
 
-    // Populate lastMessage and re-populate participants (if needed)
-    await conversation.populate('lastMessage', 'content createdAt');
-    await conversation.populate('participants', 'firstname lastname email image_url');
+    // Populate last message and participants asynchronously
+    conversation = await conversation.populate([
+      { path: 'lastMessage', select: 'content createdAt' },
+      { path: 'participants', select: 'firstname lastname email image_url' }
+    ]);
 
-    // Filter out participants with firstname "Admin"
+    // Filter out "Admin" users
     const filteredConversation = {
       ...conversation.toObject(),
       participants: conversation.participants.filter(user => user.firstname !== "Admin")
     };
 
-    console.log(savedMessage);
     return { conversations: filteredConversation, message: savedMessage };
   } catch (error) {
     console.error('Error creating message and conversation:', error);
     throw error;
   }
 };
-
