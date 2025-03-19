@@ -20,11 +20,14 @@ exports.createMessageAndConversation = async ({ messageId, conversationId, sende
     const senderId = senderUser._id;
     const recipientId = recipientUser._id;
 
-    let conversationId_sender = identifier === sender ? conversationId : null;
-    let conversationId_receiver = identifier === recipient ? conversationId : null;
+    let conversationId_sender = null;
+    let conversationId_receiver = null;
 
-    let messageId_sender = identifier === sender ? messageId : null;
-    let messageId_receiver = identifier === recipient ? messageId : null;
+    if (identifier === sender) {
+      conversationId_sender = conversationId;
+    } else if (identifier === recipient) {
+      conversationId_receiver = conversationId;
+    }
 
     // Check for existing conversation
     let conversation = await Conversation.findOne({
@@ -38,6 +41,14 @@ exports.createMessageAndConversation = async ({ messageId, conversationId, sende
         conversationId_sender,
         conversationId_receiver
       });
+    } else {
+      // Update conversationId_sender or conversationId_receiver based on the condition
+      if (conversationId_sender && !conversation.conversationId_sender) {
+        conversation.conversationId_sender = conversationId_sender;
+      } else if (conversationId_receiver && !conversation.conversationId_receiver) {
+        conversation.conversationId_receiver = conversationId_receiver;
+      }
+      await conversation.save();
     }
 
     // Create the new message
@@ -47,10 +58,10 @@ exports.createMessageAndConversation = async ({ messageId, conversationId, sende
       content: content,
     };
 
-    if (messageId_sender) {
-      messageData.messageId_sender = messageId_sender;
-    } else if (messageId_receiver) {
-      messageData.messageId_receiver = messageId_receiver;
+    if (conversationId_sender) {
+      messageData.messageId_sender = messageId;
+    } else if (conversationId_receiver) {
+      messageData.messageId_receiver = messageId;
     }
 
     const message = new Message(messageData);
@@ -82,3 +93,4 @@ exports.createMessageAndConversation = async ({ messageId, conversationId, sende
     throw error;
   }
 };
+
