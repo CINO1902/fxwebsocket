@@ -4,6 +4,7 @@ const User = require('../messageSchema/user'); // Ensure User model is imported
 
 exports.createMessageAndConversation = async ({ messageId, conversationId, sender, recipient, content }) => {
   try {
+    // Split conversationId (e.g. "1_caleboruta.co@gmail.com")
     const conversationIdParts = conversationId.split('_');
     const identifier = conversationIdParts.length > 1 ? conversationIdParts[1] : '';
 
@@ -20,53 +21,64 @@ exports.createMessageAndConversation = async ({ messageId, conversationId, sende
     const senderId = senderUser._id;
     const recipientId = recipientUser._id;
 
-    let conversationId_sender = null;
-    let conversationId_receiver = null;
-
-    if (identifier === sender) {
-      conversationId_sender = conversationId;
-    } else if (identifier === recipient) {
-      conversationId_receiver = conversationId;
-    }
-
-    // Check for existing conversation
+    // Check for existing conversation between these users
     let conversation = await Conversation.findOne({
       participants: { $all: [senderId, recipientId], $size: 2 }
     });
 
-    // If no conversation exists, create one
     if (!conversation) {
-      conversation = await Conversation.create({
-        participants: [senderId, recipientId], 
-        conversationId_sender,
-        conversationId_receiver
-      });
-    } else {
-      // Update conversationId_sender or conversationId_receiver based on the condition
-      if (conversationId_sender && !conversation.conversationId_sender) {
-        conversation.conversationId_sender = conversationId_sender;
-      } else if (conversationId_receiver && !conversation.conversationId_receiver) {
-        conversation.conversationId_receiver = conversationId_receiver;
+      // No conversation exists yet.
+      // Create a new conversation: if the identifier (email part) matches either sender or recipient,
+      // set conversationId_sender by default (since both fields are empty).
+      let convData = {
+        participants: [senderId, recipientId],
+        conversationId_sender: null,
+        conversationId_receiver: null
+      };
+
+      if (identifier === sender || identifier === recipient) {
+        convData.conversationId_sender = conversationId;
       }
-      await conversation.save();
+
+      conversation = await Conversation.create(convData);
+    } else {
+      // Conversation already exists.
+      // If the identifier (email) matches sender or recipient, update the conversation:
+      // - If conversationId_sender is null, set it to conversationId.
+      // - Else if conversationId_receiver is null, set that to conversationId.
+      let updateData = {};
+
+      if (identifier === sender || identifier === recipient) {
+        if (!conversation.conversationId_sender) {
+          updateData.conversationId_sender = conversationId;
+        } else if (!conversation.conversationId_receiver) {
+          updateData.conversationId_receiver = conversationId;
+        }
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        await Conversation.updateOne({ _id: conversation._id }, { $set: updateData });
+        conversation = await Conversation.findById(conversation._id);
+      }
     }
 
-    // Create the new message
+    // Create the new message.
+    // Here we set the message ID into a field depending on the identifier match.
     let messageData = {
       conversation: conversation._id,
       sender: senderId,
       content: content,
     };
 
-    if (conversationId_sender) {
+    if (identifier === sender) {
       messageData.messageId_sender = messageId;
-    } else if (conversationId_receiver) {
+    } else if (identifier === recipient) {
       messageData.messageId_receiver = messageId;
     }
 
     const message = new Message(messageData);
 
-    // Save message and update conversation in parallel
+    // Save message and update the conversation's lastMessage in parallel.
     const [savedMessage] = await Promise.all([
       message.save(),
       Conversation.updateOne(
@@ -75,13 +87,13 @@ exports.createMessageAndConversation = async ({ messageId, conversationId, sende
       )
     ]);
 
-    // Populate last message and participants asynchronously
+    // Populate lastMessage and participants
     conversation = await conversation.populate([
       { path: 'lastMessage', select: 'content createdAt' },
       { path: 'participants', select: 'firstname lastname email image_url' }
     ]);
 
-    // Filter out "Admin" users
+    // Filter out "Admin" users from the participants list
     const filteredConversation = {
       ...conversation.toObject(),
       participants: conversation.participants.filter(user => user.firstname !== "Admin")
@@ -93,4 +105,3 @@ exports.createMessageAndConversation = async ({ messageId, conversationId, sende
     throw error;
   }
 };
-
