@@ -26,6 +26,8 @@ exports.createMessageAndConversation = async ({ messageId, conversationId, sende
       participants: { $all: [senderId, recipientId], $size: 2 }
     });
 
+    let updateData = {};
+
     if (!conversation) {
       // No conversation exists, create a new one
       conversation = await Conversation.create({
@@ -34,15 +36,21 @@ exports.createMessageAndConversation = async ({ messageId, conversationId, sende
         conversationId_receiver: identifier === recipient ? conversationId : null
       });
     } else {
-      // Conversation exists, replace the conversationId where it matches the identifier
-      let updateData = {};
-
-      if (identifier === sender) {
-        updateData.conversationId_sender = conversationId; // Replace conversationId_sender
-      } else if (identifier === recipient) {
-        updateData.conversationId_receiver = conversationId; // Replace conversationId_receiver
+      // Check if conversationId_sender or conversationId_receiver is empty
+      if (!conversation.conversationId_sender) {
+        updateData.conversationId_sender = conversationId;
+      } else if (!conversation.conversationId_receiver) {
+        updateData.conversationId_receiver = conversationId;
+      } else {
+        // Both are not null, check if we need to replace one
+        if (conversation.conversationId_sender.split('_')[1] === identifier) {
+          updateData.conversationId_sender = conversationId;
+        } else if (conversation.conversationId_receiver.split('_')[1] === identifier) {
+          updateData.conversationId_receiver = conversationId;
+        }
       }
 
+      // Apply the update if needed
       if (Object.keys(updateData).length > 0) {
         await Conversation.updateOne({ _id: conversation._id }, { $set: updateData });
         conversation = await Conversation.findById(conversation._id);
