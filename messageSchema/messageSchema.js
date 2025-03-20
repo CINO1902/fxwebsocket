@@ -23,6 +23,10 @@ const messageSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  isRead: {
+    type: Number,
+    default:0
+  },
   createdAt: {
     type: Date,
     default: Date.now

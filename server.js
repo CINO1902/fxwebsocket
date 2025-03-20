@@ -115,6 +115,17 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('updateMessage', async (data) => {
+    console.log("Received sendMessage event:", data);
+    try {
+      const result = await messageController.updateMessage(data);
+      io.emit('newMessage', result); // Broadcast to all users
+    } catch (error) {
+      console.error('Error sending message:', error);
+      socket.emit('error', { message: 'Message could not be sent.' });
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
   });

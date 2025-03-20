@@ -1,6 +1,8 @@
 const Conversation = require('../messageSchema/conversationSchema');
 const Message = require('../messageSchema/messageSchema');
 const User = require('../messageSchema/user'); // Ensure User model is imported
+const mongoose = require('mongoose');
+
 
 exports.createMessageAndConversation = async ({ messageId, conversationId, sender, recipient, content }) => {
   try {
@@ -96,6 +98,25 @@ exports.createMessageAndConversation = async ({ messageId, conversationId, sende
     return { conversations: filteredConversation, message: savedMessage };
   } catch (error) {
     console.error('Error creating message and conversation:', error);
+    throw error;
+  }
+};
+
+
+exports.updateMessage = async ({ messageId }) => {
+  try {
+    const objectId = new mongoose.Types.ObjectId(messageId);
+    console.log(objectId);
+
+    // Update the message if needed
+    await Message.updateOne({ _id: objectId }, { $set: { isRead: 1 } });
+
+    // Fetch the updated message
+    const messagefind = await Message.findOne({ _id: objectId });
+
+    return { message: messagefind };
+  } catch (error) {
+    console.error('Error updating message:', error);
     throw error;
   }
 };
