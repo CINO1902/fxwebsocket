@@ -111,7 +111,7 @@ io.on('connection', (socket) => {
       io.emit('newMessage', result); // Broadcast to all users
     } catch (error) {
       console.error('Error sending message:', error);
-      socket.emit('error', { message: 'Message could not be sent.' });
+      socket.emit('error', { message: 'Message could not be sent.', error });
     }
   });
 
@@ -122,7 +122,7 @@ io.on('connection', (socket) => {
       io.emit('newMessage', result); // Broadcast to all users
     } catch (error) {
       console.error('Error sending message:', error);
-      socket.emit('error', { message: 'Message could not be sent.' });
+      socket.emit('error', { message: 'Message could not be sent.', error });
     }
   });
 
