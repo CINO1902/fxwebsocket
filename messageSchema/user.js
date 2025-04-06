@@ -4,10 +4,12 @@ const Schema = mongoose.Schema;
 
 const user = Schema({
     firstname:{
-        type:String
+        type:String,
+        ref: 'firstname',
     },
     lastname:{
-        type:String
+        type:String,
+        ref: 'lastname',
     },
     email:{
         type: String
@@ -25,7 +27,8 @@ const user = Schema({
         type:String
     },
     fcmToken:{
-        type:String
+        type:String,
+        ref: 'fcmToken',
     },
     image_url:{
         type:String
@@ -40,7 +43,8 @@ const user = Schema({
         type:String
     },
     token:{
-        type:String
+        type:String,
+        ref: 'token',
     },
     date:{
         type:Date

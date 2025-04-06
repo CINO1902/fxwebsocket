@@ -8,7 +8,10 @@ const notificationModel = require('./notificationModel');
 const personalNotificationModel = require('./personalNotificationModel');
 const messageController = require('./controllers/message');
 const Message = require('./messageSchema/messageSchema');
+const Users = require('./messageSchema/user');
 const Conversation = require('./messageSchema/conversationSchema');
+const admin = require('./firebaseAdmin')
+
 
 const app = express();
 const server = http.createServer(app);
@@ -108,7 +111,60 @@ io.on('connection', (socket) => {
     console.log("Received sendMessage event:", data);
     try {
       const result = await messageController.createMessageAndConversation(data);
-      io.emit('newMessage', result); // Broadcast to all users
+
+      io.emit('newMessage', result);
+     
+   
+ // Broadcast to all users
+
+ const content = result.message.content;
+
+ // Get sender ID as string
+ const senderRaw = result.message.sender;
+ const senderId = typeof senderRaw === 'object' && senderRaw.toHexString
+   ? senderRaw.toHexString()
+   : senderRaw.toString();
+ 
+ // Extract participants array
+ const participants = result['conversations']['participants'];
+ 
+ // Find the participant who is NOT the sender
+ const receiver = participants.find(p => p['_id'].toString() !== senderId);
+ 
+ if (!receiver) {
+   console.error('❌ Receiver not found');
+   return;
+ }
+ const recieverRaw = receiver._id;
+ const recieverId = typeof recieverRaw === 'object' && recieverRaw.toHexString
+   ? recieverRaw.toHexString()
+   : recieverRaw.toString();
+     
+   console.log(recieverId)
+      // Fetch sender details from Users collection
+      const senderUser = await Users.findById(recieverId).select('firstname lastname fcmToken');
+      const receiverUser = await Users.findById(senderId).select('firstname lastname fcmToken');
+
+
+      console.log(receiverUser)
+      if (!senderUser || !senderUser.fcmToken) {
+        console.error('Sender not found or missing FCM token');
+        return;
+      }
+      let fullname = receiverUser.firstname === 'Admin'
+      ? 'Admin'
+      : `${receiverUser.firstname} ${receiverUser.lastname}`;
+    
+      let notificationToSend = {
+        token: senderUser.fcmToken, // 🎯 the recipient device
+        notification: {
+          title: `New Message from ${fullname}`,
+          body: content,
+        },
+      };
+      await admin.messaging().send(notificationToSend)
+      .then(async response => {
+        console.log('Successfully sent message:', response);}).catch(error => console.error('Error sending message:', error));
     } catch (error) {
       console.error('Error sending message:', error);
       socket.emit('error', { message: 'Message could not be sent.', error });

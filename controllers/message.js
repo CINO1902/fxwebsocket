@@ -92,7 +92,6 @@ exports.createMessageAndConversation = async ({ messageId, conversationId, sende
     // Filter out "Admin" users from the participant list
     const filteredConversation = {
       ...conversation.toObject(),
-      participants: conversation.participants.filter(user => user.firstname !== "Admin")
     };
 
     return { conversations: filteredConversation, message: savedMessage };
